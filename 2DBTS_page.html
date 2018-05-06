@@ -23,27 +23,34 @@
       <div id="menubar">
         <ul id="menu">
           <!-- put class="selected" in the li tag for the selected page - to highlight which page you're on -->
-          <li class="selected"><a href="index.html">Home</a></li>
-          <li><a href="2DBTS_page.html">MODULE</a></li>
+          <li><a href="index.html">Home</a></li>
+          <li class="selected"><a href="2DBTS_page.html">MODULE</a></li>
           <li><a href="related.html">RELATED</a></li>
         </ul>
       </div>
     </div>
     <div id="site_content">
+      <div class="sidebar">
+        <!-- insert your sidebar items here -->
+        <h3>Some Instructions</h3>
+        <h4>Box Selection</h4>
+        <p>Simply click on a box to select it, hold and drag to place where 
+		desired. The Free Body Diagram will appear when a box has been 
+		selected. A box is deleted by dragging it off the side of the 
+		table.</p>
+		<h4>Animating</h4>
+		<p>To begin/pause animation, toggle the checkbox next to "ANIMATE". The passage of time can be increased or decreased by clicking the '+' or '-' buttons above the timer.<p>
+        <h4>Forces</h4>
+        <p>Forces may be added or deleted by clicking the appropriate 
+		button. The <b>|F|</b> slider controls the magnitude of the selected 
+		force. Clicking and dragging on the corresponding arrow on the main 
+		canvas allows orientation of the force. A new force is selected by 
+		clicking on the arrow.</p>
+		<h5>No Presets are currently available.</h5>
+      </div>
       <div id="content">
+	  	<iframe src="http://www.aaronalexanderhill.com/2dForcesExplore/2DBoxTableSandbox.html" width="605px" height="650px"></iframe>
         <!-- insert the page content here -->
-        <h1>The Classic Introductory Physics Problem</h1>
-        <p>After confirming a basic knowledge of <i>vectors</i> vs. 
-		<i>scalars</i>, the standard introductory Physics course begins with the practice
-		of creating Free Body Diagrams. And the first, easiest, place to start 
-		is with the classic "box on a table". This module hopes to help 
-		students, new to viewing the world of forces, better visualize and 
-		understand force vectors.</p>
-        <p>This module is coded entirely in JavaScript. While several 
-		functions were borrowed from generous developers, these relate only to 
-		presentation and enhanced interactivety of the module. The modeling 
-		physics, including collision detection, were developed myself while 
-		under contract for the University of Louisville.</p>
       </div>
     </div>
     <div id="content_footer"></div>
