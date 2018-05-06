@@ -1,2 +1,2 @@
-# jsPhysics
-js modules developes at UofL
+# 2d physics
+2d js physics modules
