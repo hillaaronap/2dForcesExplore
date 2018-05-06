@@ -1,0 +1,895 @@
+<!doctype html>
+<html>
+ <head>
+   <meta charset="utf-8">
+   <title>Drawing FBDs</title>
+   <!--<link rel="stylesheet" href="./css/foundation.css">-->
+   <link rel="stylesheet" href="./css/box_table.css">
+   <link rel="stylesheet" href="./css/modal.css">
+   <script src = "./js/vendor/modernizr.js"></script>
+ <!-- <script src = "./js/vendor/jquery.js"></script>-->
+   <script src = "./js/vendor/fastclick.js"></script>
+   <!--<script src = "./js/foundation.min.js"></script>-->
+   <script src = "./js/utils.js"></script>
+   <script src = "./js/crate.js"></script>
+   <script src = "./js/vector.js"></script>
+   <script src = "./js/force.js"></script>
+   <script src = "./js/table.js"></script>
+   <script src = "./js/pulley.js"></script>
+  </head>
+  <style>
+  *{
+  margin:0;
+  padding:0;
+  }
+  </style>
+ <body>
+ <div style="width:585px; max-width:585px;" id="main">
+ <canvas id = "canvas" width =585px; height= 300px style="position:absolute; left:0px; top:0px; z-index:1;"></canvas>
+ <div id="preset_modal" class="modal" >
+  <div class="modal-content">
+	<span class="close" >x</span>
+	 <p style="text-align:center;">SELECT A SCENERIO</p><br>
+  </div>
+ </div>
+ </div>
+  <script>
+   window.onload = function(){
+    var canvas = document.getElementById('canvas'),
+    context = canvas.getContext('2d'),
+    playground = [],
+    mouse=[],
+    description,
+    touch,
+    isMouseDown = false,
+    fScaling = -1,
+    gravity = 9.8,
+    relX = 0, relY = 0,
+    muStat = 1,
+    muKin = .4,
+    mouse_y,
+    crates=[],
+	modal = document.getElementById('preset_modal'),
+    //crateNumber =1,
+    reveal = [false,false],
+    force = [],
+    activeForce,
+    velocity = {mag: 0, angle:0},
+    //velArrow,
+    table,
+    isPlaying = false,
+    fixed = false,
+    secStep = .015,
+    meter = canvas.height/2,
+    timeStart,
+   // playInterval,
+    randomFlag = false,
+	randNum,
+	presetFile="./fbd_scenerios.xml",
+	xmlDoc, 
+    pulley = {toggle: false};
+   // var scenNumb = parseInt(prompt("Enter Scenerio Number", "1"))-1;
+    scenNumb = 1;
+	/*if(scenNumb<0 || null){
+     randomFlag = true;
+     randNum = [Math.random(), Math.random(), Math.random()];
+    }*/
+	loadXML();
+	document.getElementById("preset_modal").style.display ="block";
+    //loadScen();
+	drawScenerio();
+    (function drawFrame() {
+	 window.requestAnimationFrame(drawFrame);
+	 drawPlaygrounds();
+	 if(isPlaying){
+	  playAnim();
+	 }
+	}());
+	
+	
+	function loadXML(){
+    var xhttp = new XMLHttpRequest();
+	var x, a,b,c,d;
+	 console.log("loadXML");
+	xhttp.onreadystatechange = function(){
+		if(xhttp.readyState == 4 && xhttp.status == 200){
+			//console.log(xhttp.responseText);
+			xmlDoc = xhttp.responseXML;
+			x = xmlDoc.getElementsByTagName("SCENERIO");			
+			c = document.createElement("ol");
+			//popWin = window.open("","","width=400px,height=200px");
+			for(var i=-1; i <x.length; i++){
+				b = document.createElement("button");
+				b.setAttribute("name",i);
+				b.addEventListener('click', function(){
+					//"console.log(\"bob\")"+ "func("+i+"); "+"modal.style.display=\"none\";";
+					reveal = [false,false];
+					scenNumb=this.name;
+					loadScen(false);
+					
+					modal.style.display="none";
+					
+				}, false);
+				if(i<0){
+					b.appendChild(document.createTextNode("RANDOM SCENERIO"));
+				}
+				else{
+					b.appendChild(document.createTextNode(x[i].getElementsByTagName("TITLE")[0].childNodes[0].nodeValue));
+				}
+				d = document.createElement("li");
+				d.appendChild(b);
+				c.appendChild(d);
+			}
+			modal.childNodes[1].appendChild(c);
+			document.getElementsByClassName("close")[0].addEventListener('click',function(){
+				modal.style.display = "none";
+			},false);
+		}
+		
+	};
+	xhttp.open("GET", presetFile, true);
+	xhttp.send();
+   }
+	
+	/* functions */
+	
+	/*******************************************************
+   * loadScen()
+   * @param reload: boolean; true supresses new diagram creation
+   *******************************************************/
+	function loadScen(reload){
+	 //load XML
+	 //initialize crates, table, pulley, rope
+	    //call create Diagram
+	 //call drawScenerio
+	 //call createPlayground
+	 //call initiateListeners
+	// var xhttp = new XMLHttpRequest();
+     var  x, temp, tempD;
+	
+     if(typeof reload != 'boolean'){
+      reload = false;
+     }
+	  if(!reload){
+		randomFlag=false;
+		if(scenNumb<0){
+			randomFlag = true;
+			randNum = [Math.random(), Math.random(), Math.random()];
+		}
+	 }
+     if(!randomFlag){
+     // xhttp.onreadystatechange = function(){
+      //console.log(xhttp.readyState);
+      //if(xhttp.readyState == 4 && xhttp.status == 200){
+       //console.log("executed");
+     //  xmlDoc = xhttp.responseXML;
+       x = xmlDoc.getElementsByTagName("SCENERIO");
+       //title
+       window.document.title = x[scenNumb].getElementsByTagName("TITLE")[0].childNodes[0].nodeValue;
+       //description
+       description = x[scenNumb].getElementsByTagName("TEXT")[0].childNodes[0];
+       //fScaling and gravity
+       if(typeof x[scenNumb].getElementsByTagName("F_SCALING")[0].childNodes[0]!= 'undefined'){
+        fScaling = parseFloat(x[scenNumb].getElementsByTagName("F_SCALING")[0].childNodes[0].nodeValue);
+       }
+       if(typeof x[scenNumb].getElementsByTagName("GRAVITY")[0].childNodes[0]!= 'undefined'){
+        gravity = parseFloat(x[scenNumb].getElementsByTagName("GRAVITY")[0].childNodes[0].nodeValue);
+       }
+       //Crate 1 initialize
+       temp = x[scenNumb].getElementsByTagName("BOX")[0];
+       if(reload){tempD = crates[0].diagram;}
+       crates[0]= new Crate(parseFloat(temp.getElementsByTagName("SIZE")[0].childNodes[0].nodeValue),
+            temp.getElementsByTagName("COLOR")[0].childNodes[0].nodeValue, 1);
+	   crates[0].gForce = new Vector(0, crates[0].mass*gravity,crates[0].color);
+	   crates[0].x = canvas.width/2;
+	   crates[0].y = canvas.height/2;
+       if(reload){crates[0].diagram = tempD;}
+	   else{
+	    createDiagram(crates[0]);
+		createPlayground(crates[0]);
+		}
+       if(temp.getElementsByTagName("CONTACT")[0].childNodes[0].nodeValue == "TRUE"){
+        crates[0].contact.bottom = true;
+       }
+       //crates[0] velocity
+       temp = temp.getElementsByTagName("VELOCITY")[0];
+       if(typeof temp.getElementsByTagName("MAGNITUDE")[0].childNodes[0] != 'undefined'){
+        velocity.mag = parseFloat(temp.getElementsByTagName("MAGNITUDE")[0].childNodes[0].nodeValue);
+       }
+       if(typeof temp.getElementsByTagName("ANGLE")[0].childNodes[0] != 'undefined'){
+        velocity.angle = parseFloat(temp.getElementsByTagName("ANGLE")[0].childNodes[0].nodeValue);
+       }
+       
+       //Applied Force
+       temp = x[scenNumb].getElementsByTagName("BOX")[0].getElementsByTagName("APPLIEDFORCE");
+       for(var k = 0; k< temp.length; k++){
+       ////console.log("tom " + temp[k].childNodes[0].nodeValue);
+        if((temp[k].childNodes[0].nodeValue).trim() == "TRUE"){
+         ////console.log("bob");
+         tensTemp= (temp[k].getElementsByTagName("TENSION")[0].childNodes[0].nodeValue).trim() == "TRUE" ;
+         crates[0].appliedForces.push(new Force(crates[0], 0, 
+            parseFloat(temp[k].getElementsByTagName("MAGNITUDE")[0].childNodes[0].nodeValue),
+            crates[0].width*.717,
+            "green",tensTemp));
+         crates[0].appliedForces[crates[0].appliedForces.length-1].theta = Math.PI*(180-parseFloat(temp[k].getElementsByTagName("ANGLE")[0].childNodes[0].nodeValue))/180;
+        // //console.log(crates[0].appliedForces[crates[0].appliedForces.length-1]);
+        }
+       }
+      
+      
+       //Table
+       temp = x[scenNumb].getElementsByTagName("TABLE")[0];
+       ////console.log( x[scenNumb].getElementsByTagName("TABLE")[0].childNodes[0].nodeValue);
+       if((x[scenNumb].getElementsByTagName("TABLE")[0].childNodes[0].nodeValue).trim() == "TRUE"){
+        ////console.log("tommyboy123");
+        var tempAng = -parseFloat(temp.getElementsByTagName("ANGLE")[0].childNodes[0].nodeValue)*Math.PI/180;
+        table = new Table(canvas.width*.1,canvas.width*.8,.625*canvas.height, tempAng);
+		if(table.height-table.width*Math.sin(table.angle)>canvas.height){
+	     table.height = canvas.height+table.width*Math.sin(table.angle);
+	    }
+	    else if(table.height-table.width*Math.sin(table.angle)<0 ){
+	     table.height = table.width*Math.sin(table.angle);
+	    }
+		if(crates.length>0){
+		 crates[0].theta = table.angle;
+		 if(crates[0].contact.bottom){
+		  crates[0].x = table.left+5;
+          crates[0].y = table.height - (crates[0].x -table.left)*Math.tan(table.angle) 
+		               - crates[0].height/(2*Math.cos(crates[0].theta));
+		 }
+		}
+        if(temp.getElementsByTagName("MU_STATIC")[0] != null){
+         //debugger;
+         muStat = parseFloat(temp.getElementsByTagName("MU_STATIC")[0].childNodes[0].nodeValue);
+         //debugger;
+        }
+        if(temp.getElementsByTagName("MU_KINETIC")[0] != null){
+        //debugger;
+         muKin = parseFloat(temp.getElementsByTagName("MU_KINETIC")[0].childNodes[0].nodeValue);
+         
+         //debugger;
+        }
+       }
+	   else{table = undefined;}
+       
+       //Pulley and initiate counterweight-box
+       temp = x[scenNumb].getElementsByTagName("PULLEY")[0];
+       if((temp.childNodes[0].nodeValue).trim() == "TRUE"){
+        pulley.toggle = true;
+		table.angle = 0;
+		crates[0].theta=0;
+        if(reload){tempD = crates[1].diagram;}
+        crates[1] = new Crate(parseFloat(temp.getElementsByTagName("BOX_SIZE")[0].childNodes[0].nodeValue),
+              temp.getElementsByTagName("BOX_COLOR")[0].childNodes[0].nodeValue, 2);
+	    crates[1].gForce = new Vector(0, crates[1].mass*gravity, crates[1].color);
+		crates[0].x = table.right()-5;
+        crates[0].y = table.height - (crates[0].x -table.left)*Math.tan(table.angle) - crates[0].height/(2*Math.cos(crates[0].theta));
+        pulley = new Pulley(.65*table.left,table.height-.35*table.left,15,true);
+		pulley.y = crates[0].y+pulley.radius;
+        pulley.mount = {x:table.left, y:table.height};
+        pulley.hooked = crates[0];
+        pulley.hooked.hooked = pulley;
+		pulley.rope.end.x = pulley.hooked.x;
+        pulley.rope.end.y = pulley.hooked.y;//Math.tan(table.angle)*(pulley.x+pulley.radius*Math.sin(table.angle)-pulley.hooked.x) + pulley.y-pulley.radius*Math.cos(table.angle);
+        pulley.hanging = crates[1];
+		pulley.hanging.x = pulley.rope.start.x-pulley.radius;
+		pulley.hanging.y = pulley.rope.start.y + 100;
+		if(reload){crates[1].diagram=tempD;}
+		else{
+		 createDiagram(crates[1]);
+		 createPlayground(crates[1]);
+		}
+        
+       }
+	   else{
+		pulley.toggle = false; 
+		if(crates.length>1){
+			crates.splice(1,1);
+		}
+	   }
+       
+       //fixed flag
+	   temp = x[scenNumb].getElementsByTagName("FIXED");
+       if((temp[0].childNodes[0].nodeValue).trim() == "TRUE"){
+        fixed = true;
+		crates[0].x = canvas.width/2;
+        crates[0].y = temp[0].getElementsByTagName("LENGTH")[0].childNodes[0].nodeValue*meter;
+        pulley = new Pulley(canvas.width/2,0,0,true);
+        pulley.mount = {x:canvas.width/2, y:0};
+		pulley.rope.end.x = canvas.width/2;
+        pulley.rope.end.y = 0;
+        pulley.hooked = crates[0];
+		pulley.hooked.hooked = pulley;
+		pulley.rope.end.x = pulley.hooked.x;
+		pulley.rope.end.y = pulley.hooked.y;
+		
+       }
+	   else{ fixed=false;}
+	   // console.log(crates.length);
+	   for(var i=0; i <crates.length; i++){
+	   // console.log("something");
+	    if(!pulley.toggle){
+	     crates[i].update(muStat,muKin,false,secStep,gravity,meter);
+	    }
+	   }
+	   temp = Math.max(crates[0].gForce.magnitude(), crates[0].sFriction.magnitude(), crates[0].kFriction.magnitude(), crates[0].nForce.magnitude());
+		for (var a=0; a < crates[0].aForces.length; a++){
+			//temp = Math.max(temp, crates[0].aForces[a].magnitude()+Math.sqrt(crates[0].aForces[a].offset.x*crates[0].aForces[a].offset.x+crates[0].aForces[a].offset.y*crates[0].aForces[a].offset.y));
+			temp = Math.max(temp, Math.sqrt((crates[0].aForces[a].x+crates[0].aForces[a].offset.x)*(crates[0].aForces[a].x+crates[0].aForces[a].offset.x)+(crates[0].aForces[a].y+crates[0].aForces[a].offset.y)*(crates[0].aForces[a].y+crates[0].aForces[a].offset.y)   ));
+			//console.log(temp, Math.sqrt((crates[0].aForces[a].x+crates[0].aForces[a].offset.x)*(crates[0].aForces[a].x+crates[0].aForces[a].offset.x)+(crates[0].aForces[a].y+crates[0].aForces[a].offset.y)*(crates[0].aForces[a].y+crates[0].aForces[a].offset.y)   ) );
+		}
+		for(var a=0; a <crates[0].cForces.length; a++){
+			temp = Math.max(temp, crates[0].cForces[a].magnitude());
+		}		 
+		fScaling = crates[0].diagram.canvas.height/(2.1*temp);
+		//console.log(fScaling);
+	   if(typeof table != 'undefined'){
+	     crates[0].intersect(table);
+	    // console.log("something different");
+	    }
+		crates[0].vx = velocity.mag*Math.cos(velocity.angle);
+	    crates[0].vy = velocity.mag*Math.sin(velocity.angle);
+		if(pulley.toggle){
+		 //console.log("pulley");
+		  velocity.angle = 0;
+		 pulley.update(muStat, muKin, true, secStep, gravity, meter);
+		 temp = Math.max(pulley.hooked.cForces[0].magnitude(),pulley.hooked.gForce.magnitude() );
+		 fScaling = pulley.hooked.diagram.canvas.height/(2.1*temp);
+		
+		}
+		
+	  // console.log(crates[0].vx, pulley.hooked.vx);
+	   drawScenerio();
+       if(!reload){
+        initiateListeners();
+       }
+     // }
+	  
+     //};
+     //xhttp.open("GET", presetFile, true);
+    // xhttp.send();
+    }
+	/**********Random scenerio*********/
+	else{
+	  //title
+      window.document.title = "Random";
+      //Crate 1 initialize
+      if(reload){tempD = crates[0].diagram}
+	  temp = randNum[0]*44+56;
+      crates[0]= new Crate( temp,"red", 1);
+	  crates[0].gForce = new Vector(0, crates[0].mass*gravity,crates[0].color);
+	  crates[0].x = canvas.width/2;
+	  crates[0].y = canvas.height/2;
+      if(reload){crates[0].diagram = tempD;}
+	  else{
+		 createDiagram(crates[0]);
+		 createPlayground(crates[0]);
+		}
+      crates[0].contact.bottom = (randNum[1]<0.6);
+      
+      
+      //Applied Force
+      temp = Math.floor( randNum[2]*3);
+      for(var k = 0; k< temp; k++){
+       if(temp>0){
+        tensTemp= ( randNum[1]>=0.5);
+        crates[0].appliedForces.push(new Force(crates[0], 0,  randNum[k%3]*30 +5, crates[0].width*.717,"green",tensTemp));
+        crates[0].appliedForces[crates[0].appliedForces.length-1].theta = Math.PI*(180-(randNum[k*k%2]/(randNum[0]-.3)*360))/180;
+       }
+      }
+      //Table
+      if(crates[0].contact.bottom){
+       table = new Table(canvas.width*.1,canvas.width*.8,.625*canvas.height, ( randNum[k*k*k%3]*60 - 30)*Math.PI/180);
+	   if(table.height-table.width*Math.sin(table.angle)>canvas.height){
+	    table.height = canvas.height+table.width*Math.sin(table.angle);
+	   }
+	   else if(table.height-table.width*Math.sin(table.angle)<0 ){
+	    table.height = table.width*Math.sin(table.angle);
+	   }
+	   
+	   crates[0].theta=table.angle;
+	   crates[0].y = canvas.height;
+	   
+       muStat =  randNum[0]*2;
+       muKin =  randNum[2]*muStat;
+	   //crates[0] velocity
+       //crates[0].vx = Math.floor( randNum[0]*9-4.5)*Math.cos(table.angle);
+	   //crates[0].vy = -Math.floor( randNum[0]*9-4.5)*Math.sin(table.angle);
+      }
+	  else{table = undefined;}
+     // console.log(crates[0].vx*crates[0].vx+crates[0].vy*crates[0].vy);
+      //Pulley and initiate counterweight-box
+       pulley.toggle = ( randNum[1]+randNum[2] <.4);
+	   if(pulley.toggle){
+	    table.angle=0;
+		crates[0].theta=0;
+        if(reload){tempD = crates[1].diagram;}
+        crates[1] = new Crate( randNum[2]*44+56,"red", 2);
+        crates[1].gForce = new Vector(0, crates[1].mass*gravity, crates[1].color);
+		crates[0].x = table.right()-5;
+        crates[0].y = table.height - (crates[0].x -table.left)*Math.tan(table.angle) - crates[0].height/(2*Math.cos(crates[0].theta));
+        pulley = new Pulley(.65*table.left,table.height-.35*table.left,15,true);
+		pulley.y = crates[0].y+pulley.radius;
+        pulley.mount = {x:table.left, y:table.height};
+        pulley.hooked = crates[0];
+        pulley.hooked.hooked = pulley;
+		pulley.rope.end.x = pulley.hooked.x;
+        pulley.rope.end.y = pulley.hooked.y;//Math.tan(table.angle)*(pulley.x+pulley.radius*Math.sin(table.angle)-pulley.hooked.x) + pulley.y-pulley.radius*Math.cos(table.angle);
+        pulley.hanging = crates[1];
+		pulley.hanging.x = pulley.rope.start.x-pulley.radius;
+		pulley.hanging.y = pulley.rope.start.y + 100;
+		if(reload){crates[1].diagram=tempD;}
+		else{
+		 createDiagram(crates[1]);
+		 createPlayground(crates[1]);
+		}
+	   }
+	   else{
+		pulley.toggle = false; 
+		if(crates.length>1){
+			crates.splice(1,1);
+		}
+	   }
+      
+      //fixed flag
+       fixed = (!pulley.toggle && ( randNum[0]<.2) && (typeof table == 'undefined'));
+	   if(fixed){
+	   console.log(randNum[0]);
+	    crates[0].x = canvas.width/2-(randNum[0]*canvas.height/3);
+        crates[0].y = canvas.height/2;
+        pulley = new Pulley(canvas.width/2,0,0,true);
+        pulley.mount = {x:canvas.width/2, y:0};
+		pulley.rope.end.x = canvas.width/2;
+        pulley.rope.end.y = 0;
+		pulley.hooked = crates[0];
+		pulley.hooked.hooked = pulley;
+		pulley.rope.end.x = pulley.hooked.x;
+		pulley.rope.end.y = pulley.hooked.y;
+		pulley.hooked.appliedForces.splice(0,pulley.hooked.appliedForces.length);
+		//console.log(pulley.hooked.appliedForces)
+	   }
+	   else{fixed=false;}
+	   
+	    temp = Math.max(crates[0].gForce.magnitude(), crates[0].sFriction.magnitude(), crates[0].kFriction.magnitude(), crates[0].nForce.magnitude());
+		for (var a=0; a < crates[0].aForces.length; a++){
+			//temp = Math.max(temp, crates[0].aForces[a].magnitude()+Math.sqrt(crates[0].aForces[a].offset.x*crates[0].aForces[a].offset.x+crates[0].aForces[a].offset.y*crates[0].aForces[a].offset.y));
+			temp = Math.max(temp, Math.sqrt((crates[0].aForces[a].x+crates[0].aForces[a].offset.x)*(crates[0].aForces[a].x+crates[0].aForces[a].offset.x)+(crates[0].aForces[a].y+crates[0].aForces[a].offset.y)*(crates[0].aForces[a].y+crates[0].aForces[a].offset.y)   ));
+			//console.log(temp, Math.sqrt((crates[0].aForces[a].x+crates[0].aForces[a].offset.x)*(crates[0].aForces[a].x+crates[0].aForces[a].offset.x)+(crates[0].aForces[a].y+crates[0].aForces[a].offset.y)*(crates[0].aForces[a].y+crates[0].aForces[a].offset.y)   ) );
+		}
+		for(var a=0; a <crates[0].cForces.length; a++){
+			temp = Math.max(temp, crates[0].cForces[a].magnitude());
+		}		 
+		fScaling = crates[0].diagram.canvas.height/(2.1*temp);
+   
+	    for(var i=0; i <crates.length; i++){
+	     //console.log("something");
+		 if(!pulley.toggle){
+	      crates[i].update(muStat,muKin,false,secStep,gravity,meter);
+	     }
+		}
+		 temp = Math.max(crates[0].gForce.magnitude(), crates[0].sFriction.magnitude(), crates[0].kFriction.magnitude(), crates[0].nForce.magnitude());
+		for (var a=0; a < crates[0].aForces.length; a++){
+			//temp = Math.max(temp, crates[0].aForces[a].magnitude()+Math.sqrt(crates[0].aForces[a].offset.x*crates[0].aForces[a].offset.x+crates[0].aForces[a].offset.y*crates[0].aForces[a].offset.y));
+			temp = Math.max(temp, Math.sqrt((crates[0].aForces[a].x+crates[0].aForces[a].offset.x)*(crates[0].aForces[a].x+crates[0].aForces[a].offset.x)+(crates[0].aForces[a].y+crates[0].aForces[a].offset.y)*(crates[0].aForces[a].y+crates[0].aForces[a].offset.y)   ));
+			//console.log(temp, Math.sqrt((crates[0].aForces[a].x+crates[0].aForces[a].offset.x)*(crates[0].aForces[a].x+crates[0].aForces[a].offset.x)+(crates[0].aForces[a].y+crates[0].aForces[a].offset.y)*(crates[0].aForces[a].y+crates[0].aForces[a].offset.y)   ) );
+		}
+		for(var a=0; a <crates[0].cForces.length; a++){
+			temp = Math.max(temp, crates[0].cForces[a].magnitude());
+		}		 
+		fScaling = crates[0].diagram.canvas.height/(2.1*temp);
+		//console.log(fScaling);
+		if(typeof table != 'undefined'){
+	     crates[0].intersect(table);
+	    // console.log("something different");
+	    }
+		if(pulley.toggle){
+		 //console.log("pulley");
+		// pulley.update(muStat, muKin, false, secStep, gravity, meter);
+		 pulley.update(muStat, muKin, true, secStep, gravity, meter);
+		 //fScaling = pulley.hooked.diagram.height/(2.1*pulley.hooked.cForces[0].magnitude());
+		}
+	    drawScenerio();
+        if(!reload){       initiateListeners();     }
+    } 
+   }
+   
+	/**************************************
+   * drawScenerio
+   * //draw crate(s)
+   *	//draw table
+   *   //draw pulley
+   * *play button
+   * *reload button
+   * It is called initially and then by PlayAnim
+   ****************************************/
+   function drawScenerio(){
+    //clear Background
+	context.clearRect(0,0,canvas.width, canvas.height);
+	if(typeof table != 'undefined'){
+	 //console.log("call");
+	 table.draw(context);
+	}
+	
+	//console.log(crates);
+	for(var i = 0; i<crates.length; i++){
+	 crates[i].update(muStat,muKin, false, secStep, gravity, meter);
+	 crates[i].draw(context, fScaling);
+	}
+	if(pulley.toggle){
+		//pulley.update(muStat,muKin,true, secStep, gravity, meter);
+		pulley.draw(context);
+		/*context.save();
+		context.strokeStyle = "White";
+		context.fillStyle = "rgba(130,130,130,.5)";
+		context.beginPath();
+		context.arc(pulley.rope.end.x,pulley.rope.end.y,3, 0, 2*Math.PI, false);
+		context.closePath();
+		context.stroke();
+		context.fill();
+		context.restore();*/
+	}
+	
+	//play button &  reload button
+	if(!isPlaying){
+	//console.log("play");
+     context.save();
+     context.fillStyle = "Green";
+     context.fillRect(20, 20, 50, 30);
+	 context.fillStyle = "Purple";
+	 context.fillRect(canvas.width -70, 20, 50, 30);
+     context.fillStyle = "White";
+     context.font = "14px Comic";
+     context.fillText("PLAY",30 ,40)
+	 context.fillText("LOAD", canvas.width-62, 40);
+	 context.restore();
+    }
+    drawCovers();   
+   }
+   /***************************************************
+   * createDiagrem
+   * *make diagram
+   * *append to divs
+   * *assign to crate
+   *@param crate : crate object
+   ****************************************************/
+   function createDiagram(crate){
+    var diagNode = document.createElement("canvas");
+	diagNode.setAttribute("id","d"+crate.number);
+	diagNode.setAttribute("name", "diagram");
+	diagNode.width = canvas.width/2;
+	diagNode.height = canvas.height;
+	diagNode.style = "position:absolute; left:"+canvas.width/2+"px; top:"+canvas.height
+	  +"px; z-index:"+(crate.number%2+1)+";" +"background-color:white;";
+	if(crate.number ===1){
+	 diagNode.active = true;
+	}
+	else{diagNode.active = false;}
+	//console.log(diagNode.active);
+	document.getElementById("main").appendChild(diagNode);
+	crate.diagram = diagNode.getContext('2d');
+   }
+   
+   /***************************************************
+   * createPlayground
+   * *make playground
+   * *append to div
+   * *assign to playground[]
+   *@param crate : crate object
+   ****************************************************/
+   function createPlayground(crate){
+    var playNode = document.createElement("canvas");
+	playNode.setAttribute("id", "p"+crate.number);
+	playNode.setAttribute("name", "playground");
+	playNode.width = canvas.width/2;
+	playNode.height = canvas.height;
+	playNode.style= "position:absolute; left:0px; top:"+canvas.height
+	  +"px; z-index:"+(crate.number%2+1)+";" +"background-color:white;";
+	if(crate.number ===1){
+	 playNode.active = true;
+	}
+	else{playNode.active = false;}
+	document.getElementById("main").appendChild(playNode);
+	playground[crate.number-1] = playNode.getContext('2d');
+	playground[crate.number-1].force = [];
+   }
+   
+   /***************************************************
+   * drawPlaygrounds
+   ****************************************************/
+   function drawPlaygrounds(){
+    //console.log("drawPlaygrounds");
+    for(var n=0; n <playground.length; n++){
+     playground[n].clearRect(0,0,playground[n].canvas.width, playground[n].canvas.height);
+     playground[n].save();
+     //axes
+     playground[n].lineWidth = 1;
+     playground[n].strokeStyle = utils.parseColor("Black");
+     playground[n].beginPath();
+     playground[n].moveTo(0,playground[n].canvas.height/2);
+     playground[n].lineTo(playground[n].canvas.width, playground[n].canvas.height/2);
+     playground[n].moveTo(playground[n].canvas.width/2, 0);
+     playground[n].lineTo(playground[n].canvas.width/2, playground[n].canvas.height);
+     //playground[n].closePath();
+     playground[n].stroke();
+     
+     //new force
+     
+     playground[n].fillStyle = "Green";
+     playground[n].fillRect(10, playground[n].canvas.height-30, 40,20);
+    // playground[n].fillStyle = crates[n-1].gForce.color;
+     playground[n].fillStyle = "Red";
+     playground[n].fillRect(10, playground[n].canvas.height-55, 40,20);
+     /*if(crates[n-1].nForce !== undefined){
+      playground[n].fillStyle = crates[n-1].nForce.color;
+     }
+     else{playground[n].fillStyle = }*/
+     playground[n].fillStyle = "Purple"
+     playground[n].fillRect(10, playground[n].canvas.height-80, 40,20);
+     playground[n].fillStyle = "Blue";
+     playground[n].fillRect(10, playground[n].canvas.height-105, 40,20);
+    // playground[n].fillStyle = crates[n-1].;
+     playground[n].fillStyle = "magenta"
+     playground[n].fillRect(10, playground[n].canvas.height-130, 40,20);
+     playground[n].fillStyle = "Orange"
+     playground[n].fillRect(10, playground[n].canvas.height-155, 40,20);
+     
+     playground[n].fillStyle = 'Grey';
+     playground[n].fillRect(playground[n].canvas.width-50, playground[n].canvas.height-30,40,20);
+     
+     playground[n].fillStyle = 'white';
+     playground[n].font = "10px Verdana";
+     playground[n].fillText("F_a", 18,playground[n].canvas.height-15 );
+     playground[n].fillText("F_g", 18, playground[n].canvas.height-40);
+     playground[n].fillText("F_n", 18, playground[n].canvas.height-65);
+     playground[n].fillText("F_T", 18, playground[n].canvas.height-90);
+     playground[n].fillText("f_s", 18, playground[n].canvas.height-115);
+     playground[n].fillText("f_k", 18, playground[n].canvas.height-140);
+     
+         
+     playground[n].fillText("Delete", playground[n].canvas.width-48, playground[n].canvas.height-15);
+     playground[n].restore();
+     for(var i=0; i< playground[n].force.length; i++){
+      playground[n].force[i].draw(playground[n]);
+     }
+    }
+   }
+   
+   function drawCovers() {
+    for(var i=0; i<crates.length; i++){
+     if(!reveal[i]){
+     
+      crates[i].diagram.save();
+      crates[i].diagram.fillStyle = "#4f4f4f";
+      crates[i].diagram.fillRect(0,0,crates[i].diagram.canvas.width,crates[i].diagram.canvas.height);
+      crates[i].diagram.fillStyle = "Black";
+      crates[i].diagram.fillRect(crates[i].diagram.canvas.width/2-40,crates[i].diagram.canvas.height/2-20,80,40);
+      crates[i].diagram.font = "14px Comic";
+      crates[i].diagram.fillStyle = "White";
+      crates[i].diagram.fillText("REVEAL", crates[i].diagram.canvas.width/2-24, crates[i].diagram.canvas.height/2+7);
+      crates[i].diagram.restore();
+     
+     }
+    }
+   }
+   /***************************************
+   * playAnim
+   //animate 
+	//update crates
+	//update pulley
+	//toggle isPlaying
+	// call loadScen when done
+	//drawScenerio
+   ****************************************/
+   function playAnim(){
+    if(pulley.toggle){
+	 pulley.update(muStat, muKin, true, secStep, gravity, meter);
+	}
+	else{
+     for(var i=0; i <crates.length; i++){
+	 //console.log("something");
+	  crates[i].update(muStat,muKin,true,secStep,gravity,meter);
+	 }
+	}
+	if(typeof table != 'undefined'){
+	 crates[0].intersect(table);
+	  // console.log("something different");
+	}
+	drawScenerio();
+	if(Date.now() >1500 + timeStart){
+	 isPlaying = false;
+	 loadScen(true);
+	} 
+   }
+   
+   
+   
+   
+   
+   function initiateListeners(){
+   document.getElementsByClassName("close")[0].addEventListener('click',function(){
+		modal.style.display = "none";
+	},false);
+    // play, reload, switch diagrams (via clicking box)
+	canvas.addEventListener('click', function(){
+	 if(!isPlaying){
+	  if(event.pageY>20 && event.pageY <50){
+	   if(event.pageX >20 && event.pageX <70){
+	    timeStart = Date.now();
+		isPlaying = true;
+	   }
+	   else if(event.pageX >canvas.width-70 && event.pageX<canvas.width-20){
+	    //window.location.reload(true);
+		//console.log("blag");
+		document.getElementById("preset_modal").style.display ="block";
+	   }
+	  }
+	 }
+	 for(var i=0; i<crates.length;i++){
+	  if(crates[i].containsPoint(event.pageX, event.pageY)){
+	  // console.log("ln 579");
+	   crates[i].diagram.canvas.active = true;
+	   playground[i].canvas.active = true;
+	   crates[i].diagram.canvas.style.zIndex = 2;
+	   playground[i].canvas.style.zIndex = 2;
+	   for(var j=0; j<crates.length;j++){
+	    if(j!==i){
+		 crates[j].diagram.canvas.active = false;
+		 playground[j].canvas.active = false;
+		 crates[j].diagram.canvas.style.zIndex = 1;
+		 playground[j].canvas.style.zIndex = 1;
+		}
+	   }
+	  }
+	 }
+	}, false);
+	
+	if(typeof crates[0]!= 'undefined'){
+	 crates[0].diagram.canvas.addEventListener('click', function(){
+	  if(crates[0].diagram.canvas.active){
+	   reveal[0]=true;
+	   crates[0].draw(context,fScaling);
+	  }
+	 }, false);
+	 playground[0].canvas.addEventListener('click', function(){
+	  var temp = playground[0].canvas, 
+	  ttemp = parseInt(temp.style.top) + parseInt(temp.height);
+	  if(temp.active){
+	   
+	   if(event.pageX >10 && event.pageX<50){
+	    if(event.pageY > -155){
+	     if(event.pageY < ttemp-135){
+		  playground[0].force.push(new Vector(25,25,'Orange'));
+		 }
+		 else if(event.pageY < ttemp - 110){
+		  playground[0].force.push(new Vector(25,25,'magenta'));
+		 }
+		 else if(event.pageY < ttemp - 85){
+		  playground[0].force.push(new Vector(25,25,'Blue'));
+		 }
+		 else if(event.pageY < ttemp - 60){
+		  playground[0].force.push(new Vector(25,25,'Purple'));
+		 }
+		 else if(event.pageY < ttemp - 35){
+		  playground[0].force.push(new Vector(25,25,'Red'));
+		 }
+		 else if(event.pageY < ttemp - 10){
+		  playground[0].force.push(new Vector(25,25,'Green'));
+		 }
+		 activeForce = playground[0].force[force.length-1];
+	    }
+	   }
+	   else if(event.pageX > temp.width-50 && event.pageX < temp.width-10
+	     &&  event.pageY > ttemp - 30 && event.pageY < ttemp -10)
+	   {
+	   //console.log("delete");
+	    playground[0].force.splice(playground[0].force.indexOf(activeForce),1);
+	   }
+	  } 
+	 },false);
+	  playground[0].canvas.addEventListener('mousedown', function(){
+	   if(playground[0].canvas.active){
+	    //console.log(event.pageX + " :: " + event.pageY );
+	    for(var i=0; i<playground[0].force.length; i++){
+		 if(playground[0].force[i].containsPoint(event.pageX, -parseInt(playground[0].canvas.style.top) + event.pageY,{x:playground[0].canvas.width/2,y:playground[0].canvas.height/2})){
+		  isMouseDown = true;
+		  activeForce = playground[0].force[i];
+		  relX = event.pageX - activeForce.x;
+		  relY = -parseInt(playground[0].canvas.style.top) + event.pageY - activeForce.y;
+		  playground[0].canvas.addEventListener('mouseup', onMouseUp0,false);
+		  playground[0].canvas.addEventListener('mousemove', onMouseMove, false);
+		 }
+		}
+	   }
+	  },false);
+	 }
+	 
+	 //console.log(crates[1]);
+	 if(typeof crates[1]!= 'undefined'){
+	 crates[1].diagram.canvas.addEventListener('click', function(){
+	  if(crates[1].diagram.canvas.active){
+	   reveal[1]=true;
+	   crates[1].draw(context,fScaling);
+	  }
+	 }, false);
+	 playground[1].canvas.addEventListener('click', function(){
+	  var temp = playground[1].canvas, 
+	  ttemp = parseInt(temp.style.top) + parseInt(temp.height);
+	  if(temp.active){
+	   
+	   if(event.pageX >10 && event.pageX<50){
+	    if(event.pageY > -155){
+	     if(event.pageY < ttemp-135){
+		  playground[1].force.push(new Vector(25,25,'Orange'));
+		 }
+		 else if(event.pageY < ttemp - 110){
+		  playground[1].force.push(new Vector(25,25,'magenta'));
+		 }
+		 else if(event.pageY < ttemp - 85){
+		  playground[1].force.push(new Vector(25,25,'Blue'));
+		 }
+		 else if(event.pageY < ttemp - 60){
+		  playground[1].force.push(new Vector(25,25,'Purple'));
+		 }
+		 else if(event.pageY < ttemp - 35){
+		  playground[1].force.push(new Vector(25,25,'Red'));
+		 }
+		 else if(event.pageY < ttemp - 10){
+		  playground[1].force.push(new Vector(25,25,'Green'));
+		 }
+		 activeForce = playground[1].force[force.length-1];
+	    }
+	   }
+	   else if(event.pageX > temp.width-50 && event.pageX < temp.width-10
+	     &&  event.pageY > ttemp - 30 && event.pageY < ttemp -10)
+	   {
+	   //console.log("delete");
+	    playground[1].force.splice(playground[1].force.indexOf(activeForce),1);
+	   }
+	  } 
+	 },false);
+	  playground[1].canvas.addEventListener('mousedown', function(){
+	   if(playground[1].canvas.active){
+	    //console.log(event.pageX + " :: " + event.pageY );
+	    for(var i=0; i<playground[1].force.length; i++){
+		 if(playground[1].force[i].containsPoint(event.pageX, -parseInt(playground[1].canvas.style.top) + event.pageY,{x:playground[1].canvas.width/2,y:playground[1].canvas.height/2})){
+		  isMouseDown = true;
+		  activeForce = playground[1].force[i];
+		  relX = event.pageX - activeForce.x;
+		  relY = -parseInt(playground[1].canvas.style.top) + event.pageY - activeForce.y;
+		  playground[1].canvas.addEventListener('mouseup', onMouseUp1,false);
+		  playground[1].canvas.addEventListener('mousemove', onMouseMove, false);
+		 }
+		}
+	   }
+	  },false);
+	 }
+	 
+	}
+    //playgrounds
+	   //forces
+	//diagram 
+	   //reveal
+   
+   
+   function onMouseMove(){
+    activeForce.x = event.pageX - relX;
+	activeForce.y = -parseInt(playground[0].canvas.style.top) + event.pageY - relY;
+    //move forces
+    }  //1 and 2?
+   function onMouseUp0(){
+    isMouseDown = false;
+	playground[0].canvas.removeEventListener('mousemove', onMouseMove);
+    playground[0].canvas.removeEventListener('mouseup', onMouseUp0);	
+    //deactivate listeners
+    //mousedownfalse	
+   }    
+   function onMouseUp1(){
+    isMouseDown = false;
+	playground[1].canvas.removeEventListener('mousemove', onMouseMove);
+    playground[1].canvas.removeEventListener('mouseup', onMouseUp1);
+   }
+   };
+  </script>
+ </body>
+</html>
+  
